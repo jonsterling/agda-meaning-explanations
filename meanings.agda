@@ -17,18 +17,17 @@ open Σ public
 _×_ : Set → Set → Set
 A × B = Σ A λ _ → B
   
-data sort : Set where
-  + - : sort
+data tm : Set where
+  _&_ : tm → tm → tm
+  ⟨_,_⟩ : tm → tm → tm
+  fst snd : tm → tm
+  unit ax : tm
 
-data tm : sort → Set where
-  ↑_ : tm + → tm -
-  _&_ : tm - → tm - → tm +
-  ⟨_,_⟩ : tm - → tm - → tm +
-  fst snd : tm - → tm -
-  unit ax : tm +
-
-data _⟦=>⟧_ : tm - → tm + → Set where
-  =>/↑ : ∀ {M} → ↑ M ⟦=>⟧ M
+data _⟦=>⟧_ : tm → tm → Set where
+  =>/& : ∀ {M N} → (M & N) ⟦=>⟧ (M & N)
+  =>/, : ∀ {M N} → ⟨ M , N ⟩ ⟦=>⟧ ⟨ M , N ⟩
+  =>/unit : unit ⟦=>⟧ unit
+  =>/ax : ax ⟦=>⟧ ax
   =>/fst : ∀ {M M1 M2 M1′} → M ⟦=>⟧ ⟨ M1 , M2 ⟩ → M1 ⟦=>⟧ M1′ → fst M ⟦=>⟧ M1′
   =>/snd : ∀ {M M1 M2 M2′} → M ⟦=>⟧ ⟨ M1 , M2 ⟩ → M2 ⟦=>⟧ M2′ → snd M ⟦=>⟧ M2′
 
@@ -40,28 +39,28 @@ data judgement where
   not-now triv : judgement
   _then_ : judgement → judgement → judgement
 
-  _=>_ : tm - → tm + → judgement
-  _type+ : tm + → judgement
-  _type : tm - → judgement
-  _∈_ : (M A : tm -) {{ _ : ⊢ A type }} → judgement
+  _=>_ : tm → tm → judgement
+  _type+ : tm → judgement
+  _type : tm → judgement
+  _∈_ : (M A : tm) {{ _ : ⊢ A type }} → judgement
 
-record _⟦type+⟧ (A : tm +) : Set where
+record _⟦type+⟧ (A : tm) : Set where
   field
-    type+/ver : tm + → judgement
+    type+/ver : tm → judgement
     type+/ver= : ∀ M N → ⊢ type+/ver M → ⊢ type+/ver N → judgement
 
 open _⟦type+⟧ public
 
-record _⟦type⟧ (A : tm -) : Set where
+record _⟦type⟧ (A : tm) : Set where
   field
-    {type/val} : tm +
+    {type/val} : tm
     {{type/=>}} : ⊢ A => type/val
     {{type/type+}} : ⊢ type/val type+
 open _⟦type⟧ public
 
-record _⟦∈⟧_ (M A : tm -) {{A-type : A ⟦type⟧}} : Set
+record _⟦∈⟧_ (M A : tm) {{A-type : A ⟦type⟧}} : Set
 
-_==_∈_ : (M N A : tm -) {{_ : ⊢ A type}} {{_ : ⊢ M ∈ A}} {{_ : ⊢ N ∈ A}} → judgement
+_==_∈_ : (M N A : tm) {{_ : ⊢ A type}} {{_ : ⊢ M ∈ A}} {{_ : ⊢ N ∈ A}} → judgement
 
 ⊢ not-now = [0]
 ⊢ triv = [1]
@@ -75,16 +74,14 @@ instance
   auto-prod : ∀ {A B} → {{M : A}} {{N : B M}} → Σ A B
   auto-prod {{M}} {{N}} = ⟨ M , N ⟩
 
-record _⟦∈⟧_ (M A : tm -) {{A-type : A ⟦type⟧}} where
+record _⟦∈⟧_ (M A : tm) {{A-type : A ⟦type⟧}} where
   field
-    {∈/val} : tm +
+    {∈/val} : tm
     {{∈/=>val}} : ⊢ M => ∈/val
     {{∈/ver+}} : ⊢ type+/ver (type/type+ A-type) ∈/val
 open _⟦∈⟧_ public
 
 _==_∈_ M N A {{A-type}} {{M∈A}} {{N∈A}} = type+/ver= (type/type+ A-type) (∈/val M∈A) (∈/val N∈A) (∈/ver+ M∈A) (∈/ver+ N∈A)
-
-
 
 instance
   unit-type : ⊢ unit type+
@@ -101,9 +98,8 @@ instance
       ; type+/ver= = λ {⟨ M1 , N1 ⟩ ⟨ M2 , N2 ⟩ ⟨ M1∈P , N1∈Q ⟩ ⟨ M2∈P , N2∈Q ⟩ → (M1 == M2 ∈ P) then (N1 == N2 ∈ Q); _ _ _ _ → not-now}
       }
 
-test : ⊢ (↑ ax) ∈ (↑ unit)
+test : ⊢ ax ∈ unit
 test = record {}
 
-test2 : ⊢ (↑ ⟨ ↑ ax , ↑ ax ⟩) ∈ (↑ ((↑ unit) & (↑ unit)))
+test2 : ⊢ ⟨ ax , ax ⟩ ∈ (unit & unit)
 test2 = record {}
-
